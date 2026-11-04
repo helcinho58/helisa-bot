@@ -1,0 +1,20 @@
+{
+  "name": "helisa-bot",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "simulate": "node src/simulate.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "dotenv": "^18.0.8",
+    "fastify": "^5.12.7",
+    "googleapis": "^186.0.0",
+    "openai": "^7.34.0"
+  }
+}
