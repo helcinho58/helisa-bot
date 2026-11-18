@@ -205,10 +205,62 @@ async function checkAvailability() {
 async function createCalendarEvent({ start, end, summary, description }) {
   const calendarClient = getGoogleCalendarClient();
 
-  const finalEnd = end || new Date(new Date(start).getTime() + 30 * 60 * 1000).toISOString();
+  const startDate = new Date(start);
+  const finalEnd = end || new Date(startDate.getTime() + 30 * 60 * 1000).toISOString();
+  const endDate = new Date(finalEnd);
 
+  // 1. Validação de Fim de Semana
+  const startSP = getSPTime(startDate);
+  const weekday = startSP.getDay();
+  if (weekday === 0 || weekday === 6) {
+    return {
+      success: false,
+      error: `BLOQUEIO: Dr. Hélcio não atende aos finais de semana (${weekday === 0 ? 'Domingo' : 'Sábado'}). Agendamento recusado.`
+    };
+  }
+
+  // 2. Validação de Horário de Atendimento da Clínica
+  const hour = startSP.getHours();
+  const min = startSP.getMinutes();
+  const timeInMinutes = hour * 60 + min;
+
+  if (weekday === 5) {
+    // Sexta-feira: 13:30 (810 min) até 15:00 (900 min)
+    if (timeInMinutes < 13 * 60 + 30 || timeInMinutes >= 15 * 60) {
+      return {
+        success: false,
+        error: `BLOQUEIO: Às sextas-feiras o Dr. Hélcio atende exclusivamente das 13:30 às 15:00. O horário solicitado (${start}) está fora do horário permitido. Agendamento recusado.`
+      };
+    }
+  } else {
+    // Segunda a Quinta: 13:30 (810 min) até 19:00 (1140 min)
+    if (timeInMinutes < 13 * 60 + 30 || timeInMinutes >= 19 * 60) {
+      return {
+        success: false,
+        error: `BLOQUEIO: De segunda a quinta-feira o Dr. Hélcio atende exclusivamente à tarde das 13:30 às 19:00. O horário solicitado (${start}) está fora do horário permitido. Agendamento recusado.`
+      };
+    }
+  }
+
+  // 3. Validação Anti-Conflito Obrigatória (Varredura de Feriados e Eventos Existentes)
   if (calendarClient) {
     try {
+      const allEvents = await fetchGoogleCalendarEvents(calendarClient);
+      for (const ev of allEvents) {
+        if (!ev.start) continue;
+        const evStart = new Date(ev.start);
+        const evEnd = new Date(ev.end);
+
+        // Verifica colisão de horários
+        if (startDate.getTime() < evEnd.getTime() && endDate.getTime() > evStart.getTime()) {
+          console.warn(`[Conflito detectado] Tentativa de agendamento em horário ocupado: ${start} colide com "${ev.summary}" (${ev.start} até ${ev.end})`);
+          return {
+            success: false,
+            error: `CONFLITO DE HORÁRIO: O horário ${start} já está ocupado ou bloqueado na agenda do Dr. Hélcio pelo evento "${ev.summary || 'Compromisso / Feriado'}". O agendamento NÃO foi realizado. Você DEVE informar ao paciente que este horário/dia está indisponível e oferecer apenas as opções livres retornadas por check_availability.`
+          };
+        }
+      }
+
       const res = await calendarClient.events.insert({
         calendarId: CALENDAR_PRIMARY,
         requestBody: {
