@@ -104,7 +104,10 @@ async function executeTool(name, args, patientData) {
       });
     case 'check_availability':
       const slots = await checkAvailability();
-      return { horariosLivres: slots };
+      return {
+        horariosLivres: slots,
+        regraObrigatoriaDeExibicao: 'ATENÇÃO: Esta é a lista completa apenas para você consultar internamente. É TERMINANTEMENTE PROIBIDO listar todos esses horários para o paciente! Escolha no máximo 2 ou 3 dias e ofereça NO MÁXIMO 3 horários espaçados por dia (ex: início da tarde, meio da tarde e fim da tarde, como "14:00, 16:00 ou 18:00"). Diga que se preferir outro horário à tarde, você pode verificar.'
+      };
     case 'create_calendar_event':
       return await createCalendarEvent(args);
     default:
